@@ -1,0 +1,399 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件中转站</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --primary: #4f6ef7;
+  --primary-hover: #3b5de7;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --radius: 12px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+}
+
+/* ===== header ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+}
+.header h1 { font-size: 26px; font-weight: 700; color: var(--text); }
+/* ===== two-column layout ===== */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 100%; max-width: 800px;
+}
+@media (max-width: 640px) {
+  body { padding: 12px 8px; overflow-x: hidden; }
+  .header { margin-bottom: 16px; }
+  .header h1 { font-size: 20px; }
+  .main { grid-template-columns: 1fr; gap: 14px; }
+  .card { padding: 16px 12px; gap: 12px; }
+  .card h2 { font-size: 16px; }
+  .dropzone { padding: 28px 12px; }
+  .dropzone .icon { font-size: 32px; }
+  .dropzone p { font-size: 13px; }
+  .code-num { font-size: 36px; letter-spacing: 4px; }
+  .dl-input-row { flex-direction: column; gap: 8px; }
+  .dl-input-row input { font-size: 18px; padding: 8px 12px; }
+  .dl-input-row button { padding: 10px 20px; font-size: 15px; }
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.card h2 { font-size: 18px; font-weight: 600; text-align: center; }
+
+/* ===== drop zone ===== */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--primary);
+  background: #eef1ff;
+}
+.dropzone .icon { font-size: 40px; margin-bottom: 8px; }
+.dropzone p { color: var(--text-secondary); font-size: 14px; }
+.dropzone input[type=file] { display: none; }
+
+/* ===== progress bar ===== */
+.progress-wrap { display: none; flex-direction: column; gap: 6px; }
+.progress-wrap.show { display: flex; }
+.progress-bar {
+  height: 8px; border-radius: 4px;
+  background: var(--border); overflow: hidden;
+}
+.progress-fill {
+  height: 100%; width: 0%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width .15s;
+}
+.progress-fill.done { background: var(--success); }
+.progress-text { font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+/* ===== result code ===== */
+.code-display { display: none; flex-direction: column; align-items: center; gap: 10px; }
+.code-display.show { display: flex; }
+.code-num {
+  font-size: 48px; font-weight: 800; letter-spacing: 6px;
+  color: var(--primary);
+}
+.copy-btn {
+  padding: 6px 18px; border: 1px solid var(--primary); border-radius: 6px;
+  background: transparent; color: var(--primary); cursor: pointer;
+  font-size: 14px; transition: background .15s, color .15s;
+}
+.copy-btn:hover { background: var(--primary); color: #fff; }
+.copy-btn.copied { background: var(--success); color: #fff; border-color: var(--success); }
+.error-msg { color: var(--danger); font-size: 13px; text-align: center; display: none; }
+.error-msg.show { display: block; }
+
+/* ===== download panel ===== */
+.dl-input-row { display: flex; gap: 10px; }
+.dl-input-row input {
+  flex: 1; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 20px; letter-spacing: 4px; text-align: center; outline: none;
+}
+.dl-input-row input:focus { border-color: var(--primary); }
+.dl-input-row button {
+  padding: 10px 24px; border: none; border-radius: var(--radius);
+  background: var(--primary); color: #fff; cursor: pointer;
+  font-size: 16px; font-weight: 600; white-space: nowrap;
+  transition: background .15s;
+}
+.dl-input-row button:hover { background: var(--primary-hover); }
+.dl-input-row button:disabled { opacity: .5; cursor: not-allowed; }
+
+.dl-status { font-size: 13px; color: var(--text-secondary); text-align: center; min-height: 20px; }
+.dl-status.error { color: var(--danger); }
+
+.footer { margin-top: 40px; font-size: 12px; color: var(--text-secondary); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📁 文件中转站</h1>
+</div>
+
+<div class="main">
+
+  <!-- ========== 发送面板 ========== -->
+  <div class="card" id="sendCard">
+    <h2>📤 发送文件</h2>
+
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📂</div>
+      <p>拖拽文件到此处，或点击选择（支持多文件）</p>
+      <input type="file" id="fileInput" multiple>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">上传中...</div>
+    </div>
+
+    <div class="code-display" id="codeDisplay">
+      <div class="code-num" id="codeNum"></div>
+      <button class="copy-btn" id="copyBtn">📋 复制取件码</button>
+    </div>
+
+    <div class="error-msg" id="sendError"></div>
+  </div>
+
+  <!-- ========== 接收面板 ========== -->
+  <div class="card" id="recvCard">
+    <h2>📥 接收文件</h2>
+
+    <div class="dl-input-row">
+      <input type="text" id="codeInput" placeholder="输入5位取件码" maxlength="5" inputmode="numeric" pattern="[0-9]*">
+      <button id="dlBtn">下载</button>
+    </div>
+
+    <div class="dl-status" id="dlStatus"></div>
+    <div class="error-msg" id="dlError"></div>
+  </div>
+
+</div>
+
+<div class="footer">文件采用文件保存 24 小时后自动过期</div>
+
+<script>
+(function() {
+  // ==============================
+  // DOM 引用
+  // ==============================
+  var dropzone     = document.getElementById('dropzone');
+  var fileInput    = document.getElementById('fileInput');
+  var progressWrap = document.getElementById('progressWrap');
+  var progressFill = document.getElementById('progressFill');
+  var progressText = document.getElementById('progressText');
+  var codeDisplay  = document.getElementById('codeDisplay');
+  var codeNum      = document.getElementById('codeNum');
+  var copyBtn      = document.getElementById('copyBtn');
+  var sendError    = document.getElementById('sendError');
+  var codeInput    = document.getElementById('codeInput');
+  var dlBtn        = document.getElementById('dlBtn');
+  var dlStatus     = document.getElementById('dlStatus');
+  var dlError      = document.getElementById('dlError');
+
+  // ==============================
+  // 服务器地址管理
+  // ==============================
+  function getServer() {
+    return window.location.origin;
+  }
+
+  // ==============================
+  // 发送：拖拽 & 点击选择
+  // ==============================
+  dropzone.addEventListener('click', function() { fileInput.click(); });
+
+  ['dragenter', 'dragover'].forEach(function(evt) {
+    dropzone.addEventListener(evt, function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function(evt) {
+    dropzone.addEventListener(evt, function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove('dragover');
+    });
+  });
+
+  dropzone.addEventListener('drop', function(e) {
+    var files = e.dataTransfer.files;
+    if (files.length > 0) { uploadFiles(files); }
+  });
+
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files.length > 0) { uploadFiles(fileInput.files); }
+  });
+
+  function uploadFiles(files) {
+    // 重置 UI
+    sendError.classList.remove('show');
+    sendError.textContent = '';
+    codeDisplay.classList.remove('show');
+    progressWrap.classList.add('show');
+    progressFill.style.width = '0%';
+    progressFill.classList.remove('done');
+    var fc = files.length;
+    if (fc === 1) {
+      progressText.textContent = '上传中: ' + files[0].name;
+    } else {
+      var ts = 0; for (var i = 0; i < files.length; i++) ts += files[i].size;
+      progressText.textContent = '打包上传 ' + fc + ' 个文件...';
+    }
+
+    var formData = new FormData();
+    for (var i = 0; i < files.length; i++) { formData.append('file', files[i]); };
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', getServer() + '/upload');
+
+    xhr.upload.onprogress = function(e) {
+      if (!e.lengthComputable) return;
+      var pct = Math.round((e.loaded / e.total) * 100);
+      progressFill.style.width = pct + '%';
+      progressText.textContent = (fc === 1 ? '上传中 ' + files[0].name + ' ' : '打包上传 ' + fc + ' 个文件 ') + pct + '%';
+    };
+
+    xhr.onload = function() {
+      progressWrap.classList.remove('show');
+      if (xhr.status === 200) {
+        var code = xhr.responseText.trim();
+        codeNum.textContent = code;
+        codeDisplay.classList.add('show');
+        // 重置复制按钮
+        copyBtn.textContent = '📋 复制取件码';
+        copyBtn.classList.remove('copied');
+      } else {
+        sendError.textContent = '上传失败: ' + xhr.responseText;
+        sendError.classList.add('show');
+      }
+    };
+
+    xhr.onerror = function() {
+      progressWrap.classList.remove('show');
+      sendError.textContent = '网络错误，请检查服务器地址和网络连接';
+      sendError.classList.add('show');
+    };
+
+    xhr.send(formData);
+  }
+
+  // ==============================
+  // 一键复制取件码
+  // ==============================
+  copyBtn.addEventListener('click', function() {
+    var code = codeNum.textContent;
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(function() {
+      copyBtn.textContent = '✅ 已复制';
+      copyBtn.classList.add('copied');
+    }).catch(function() {
+      // fallback: 老浏览器用 execCommand
+      var ta = document.createElement('textarea');
+      ta.value = code; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      copyBtn.textContent = '✅ 已复制';
+      copyBtn.classList.add('copied');
+    });
+  });
+
+  // ==============================
+  // 接收：下载
+  // ==============================
+  function doDownload() {
+    var code = codeInput.value.trim();
+    dlError.classList.remove('show');
+    dlError.textContent = '';
+    dlStatus.textContent = '';
+
+    if (code.length !== 5 || !/^\d{5}$/.test(code)) {
+      dlStatus.textContent = '请输入5位纯数字取件码';
+      dlStatus.classList.add('error');
+      return;
+    }
+    dlStatus.classList.remove('error');
+
+    var url = getServer() + '/download/' + code;
+
+    // 先 HEAD 探测文件是否可用
+    dlBtn.disabled = true;
+    dlStatus.textContent = '查询文件...';
+
+    var headXhr = new XMLHttpRequest();
+    headXhr.open('HEAD', url);
+    headXhr.onload = function() {
+      if (headXhr.status === 200) {
+        dlStatus.textContent = '开始下载...';
+        // 创建隐藏 a 标签触发浏览器下载
+        var a = document.createElement('a');
+        a.href = url;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        dlStatus.textContent = '下载已开始，请查看浏览器下载列表';
+        dlBtn.disabled = false;
+      } else if (headXhr.status === 404) {
+        dlStatus.textContent = '取件码不存在';
+        dlStatus.classList.add('error');
+        dlBtn.disabled = false;
+      } else if (headXhr.status === 410) {
+        dlStatus.textContent = '文件已过期或已被下载（阅后即焚）';
+        dlStatus.classList.add('error');
+        dlBtn.disabled = false;
+      } else {
+        dlStatus.textContent = '服务器错误 (' + headXhr.status + ')';
+        dlStatus.classList.add('error');
+        dlBtn.disabled = false;
+      }
+    };
+    headXhr.onerror = function() {
+      dlStatus.textContent = '网络错误，请检查服务器地址';
+      dlStatus.classList.add('error');
+      dlBtn.disabled = false;
+    };
+    headXhr.send();
+  }
+
+  dlBtn.addEventListener('click', doDownload);
+  codeInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { doDownload(); }
+  });
+
+  // 限制取件码输入为数字
+  codeInput.addEventListener('input', function() {
+    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 5);
+  });
+
+})();
+</script>
+
+</body>
+</html>
