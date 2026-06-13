@@ -1,0 +1,46 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://127.0.0.1:5173",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "文件中转站",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["nsis"],
+      "identifier": "top.pk31.file-transfer",
+      "icon": ["icons/icon.ico"],
+      "windows": {
+        "webviewInstallMode": {
+          "type": "offlineInstaller",
+          "silent": true
+        }
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "文件中转站 v1.0",
+        "width": 420,
+        "height": 517,
+        "resizable": false,
+        "fullscreen": false,
+        "fileDropEnabled": false
+      }
+    ]
+  }
+}

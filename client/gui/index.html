@@ -43,6 +43,45 @@ body {
   max-width: 800px;
 }
 .header h1 { font-size: 26px; font-weight: 700; color: var(--text); }
+.header .gear {
+  position: absolute; right: 0;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.header .gear:hover { background: var(--border); }
+
+/* ===== server config panel ===== */
+.config-panel {
+  display: none;
+  width: 100%; max-width: 800px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+.config-panel.show { display: flex; align-items: center; gap: 10px; }
+.config-panel label { white-space: nowrap; color: var(--text-secondary); }
+.config-panel input {
+  flex: 1; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; outline: none;
+}
+.config-panel input:focus { border-color: var(--primary); }
+.config-panel button {
+  padding: 6px 16px; border: none; border-radius: 6px;
+  background: var(--primary); color: #fff; cursor: pointer;
+  font-size: 14px;
+}
+.config-panel button:hover { background: var(--primary-hover); }
+
 /* ===== two-column layout ===== */
 .main {
   display: grid;
@@ -146,87 +185,6 @@ body {
 .dl-status { font-size: 13px; color: var(--text-secondary); text-align: center; min-height: 20px; }
 .dl-status.error { color: var(--danger); }
 
-.history-card {
-  grid-column: 1 / -1;
-  gap: 14px;
-}
-.history-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.history-head h2 { text-align: left; }
-.history-clear {
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-}
-.history-clear:hover { color: var(--danger); }
-.history-empty {
-  color: var(--text-secondary);
-  font-size: 13px;
-  text-align: center;
-}
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.history-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
-}
-.history-name {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.history-meta {
-  margin-top: 4px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-.history-code {
-  color: var(--primary);
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 3px;
-}
-.history-actions {
-  display: flex;
-  gap: 8px;
-}
-.history-actions button {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 13px;
-  white-space: nowrap;
-}
-.history-actions button:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-@media (max-width: 640px) {
-  .history-item { grid-template-columns: 1fr; }
-  .history-actions { justify-content: flex-end; }
-}
-
 .footer { margin-top: 40px; font-size: 12px; color: var(--text-secondary); text-align: center; }
 </style>
 </head>
@@ -234,6 +192,13 @@ body {
 
 <div class="header">
   <h1>📁 文件中转站</h1>
+  <div class="gear" id="gearBtn" title="服务器设置" style="display:none">⚙</div>
+</div>
+
+<div class="config-panel" id="configPanel" style="display:none">
+  <label>服务器地址</label>
+  <input type="text" id="serverUrl" placeholder="https://zz.31pk.top">
+  <button id="saveConfig">保存</button>
 </div>
 
 <div class="main">
@@ -274,15 +239,6 @@ body {
     <div class="error-msg" id="dlError"></div>
   </div>
 
-  <div class="card history-card" id="historyCard">
-    <div class="history-head">
-      <h2>上传记录</h2>
-      <button class="history-clear" id="clearUploadHistory" type="button">清空记录</button>
-    </div>
-    <div class="history-empty" id="historyEmpty">暂无上传记录</div>
-    <div class="history-list" id="historyList"></div>
-  </div>
-
 </div>
 
 <div class="footer">文件采用文件保存 24 小时后自动过期</div>
@@ -292,6 +248,10 @@ body {
   // ==============================
   // DOM 引用
   // ==============================
+  var gearBtn      = document.getElementById('gearBtn');
+  var configPanel  = document.getElementById('configPanel');
+  var serverUrl    = document.getElementById('serverUrl');
+  var saveConfig   = document.getElementById('saveConfig');
   var dropzone     = document.getElementById('dropzone');
   var fileInput    = document.getElementById('fileInput');
   var progressWrap = document.getElementById('progressWrap');
@@ -305,12 +265,6 @@ body {
   var dlBtn        = document.getElementById('dlBtn');
   var dlStatus     = document.getElementById('dlStatus');
   var dlError      = document.getElementById('dlError');
-  var historyList  = document.getElementById('historyList');
-  var historyEmpty = document.getElementById('historyEmpty');
-  var clearUploadHistory = document.getElementById('clearUploadHistory');
-
-  var HISTORY_KEY = 'zfile_upload_history';
-  var EXPIRE_MS = 24 * 60 * 60 * 1000;
   var MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
   var MAX_UPLOAD_LABEL = '500MB';
 
@@ -318,19 +272,11 @@ body {
   // 服务器地址管理
   // ==============================
   function getServer() {
-    return window.location.origin;
+    return 'https://zz.31pk.top';
   }
-
-  function formatSize(bytes) {
-    if (!bytes) return '0 B';
-    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    var size = bytes;
-    var unit = 0;
-    while (size >= 1024 && unit < units.length - 1) {
-      size = size / 1024;
-      unit++;
-    }
-    return (unit === 0 ? size : size.toFixed(1)) + ' ' + units[unit];
+  function setServer(url) {
+    localStorage.setItem('relay_server', url);
+    serverUrl.value = url;
   }
 
   function totalFileSize(files) {
@@ -339,140 +285,20 @@ body {
     return total;
   }
 
-  function formatExpireTime(ts) {
-    var d = new Date(ts);
-    var m = String(d.getMonth() + 1).padStart(2, '0');
-    var day = String(d.getDate()).padStart(2, '0');
-    var h = String(d.getHours()).padStart(2, '0');
-    var min = String(d.getMinutes()).padStart(2, '0');
-    return m + '-' + day + ' ' + h + ':' + min;
-  }
+  serverUrl.value = getServer();
 
-  function loadHistory() {
-    try {
-      var records = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      var now = Date.now();
-      records = records.filter(function(item) {
-        return item && item.code && item.expiresAt && item.expiresAt > now;
-      });
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(records));
-      return records;
-    } catch (e) {
-      localStorage.removeItem(HISTORY_KEY);
-      return [];
-    }
-  }
+  // 齿轮按钮
+  gearBtn.addEventListener('click', function() {
+    serverUrl.value = getServer();
+    configPanel.classList.toggle('show');
+  });
 
-  function saveHistory(records) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(records.slice(0, 30)));
-  }
-
-  function fileSummary(files) {
-    var list = Array.prototype.slice.call(files);
-    var total = 0;
-    for (var i = 0; i < list.length; i++) total += list[i].size || 0;
-    return {
-      name: list.length === 1 ? list[0].name : list.length + ' 个文件',
-      count: list.length,
-      size: total
-    };
-  }
-
-  function addHistoryRecord(code, files) {
-    var summary = fileSummary(files);
-    var now = Date.now();
-    var record = {
-      code: code,
-      fileName: summary.name,
-      fileCount: summary.count,
-      fileSize: summary.size,
-      server: getServer(),
-      uploadedAt: now,
-      expiresAt: now + EXPIRE_MS
-    };
-    var records = loadHistory().filter(function(item) {
-      return !(item.code === code && item.server === record.server);
-    });
-    records.unshift(record);
-    saveHistory(records);
-    renderHistory();
-  }
-
-  function copyText(text, done) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(function() {
-        fallbackCopy(text);
-        done();
-      });
-      return;
-    }
-    fallbackCopy(text);
-    done();
-  }
-
-  function fallbackCopy(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
-
-  function renderHistory() {
-    var records = loadHistory();
-    historyList.innerHTML = '';
-    historyEmpty.style.display = records.length ? 'none' : 'block';
-    clearUploadHistory.style.display = records.length ? 'block' : 'none';
-
-    records.forEach(function(item) {
-      var row = document.createElement('div');
-      row.className = 'history-item';
-
-      var info = document.createElement('div');
-      var name = document.createElement('div');
-      name.className = 'history-name';
-      name.textContent = item.fileName || '未知文件';
-      var meta = document.createElement('div');
-      meta.className = 'history-meta';
-      meta.textContent = '取件码 ' + item.code + ' · ' + formatSize(item.fileSize) + ' · 过期 ' + formatExpireTime(item.expiresAt);
-      info.appendChild(name);
-      info.appendChild(meta);
-
-      var side = document.createElement('div');
-      var code = document.createElement('div');
-      code.className = 'history-code';
-      code.textContent = item.code;
-      var actions = document.createElement('div');
-      actions.className = 'history-actions';
-      var useBtn = document.createElement('button');
-      useBtn.type = 'button';
-      useBtn.textContent = '填入';
-      useBtn.addEventListener('click', function() {
-        codeInput.value = item.code;
-        codeInput.focus();
-      });
-      var copy = document.createElement('button');
-      copy.type = 'button';
-      copy.textContent = '复制';
-      copy.addEventListener('click', function() {
-        copyText(item.code, function() {
-          copy.textContent = '已复制';
-          setTimeout(function() { copy.textContent = '复制'; }, 1200);
-        });
-      });
-      actions.appendChild(useBtn);
-      actions.appendChild(copy);
-      side.appendChild(code);
-      side.appendChild(actions);
-
-      row.appendChild(info);
-      row.appendChild(side);
-      historyList.appendChild(row);
-    });
-  }
+  saveConfig.addEventListener('click', function() {
+    var url = serverUrl.value.trim().replace(/\/+$/, '');
+    if (!url) { url = 'https://zz.31pk.top'; }
+    setServer(url);
+    configPanel.classList.remove('show');
+  });
 
   // ==============================
   // 发送：拖拽 & 点击选择
@@ -542,7 +368,6 @@ body {
         var code = xhr.responseText.trim();
         codeNum.textContent = code;
         codeDisplay.classList.add('show');
-        addHistoryRecord(code, files);
         // 重置复制按钮
         copyBtn.textContent = '📋 复制取件码';
         copyBtn.classList.remove('copied');
@@ -567,7 +392,16 @@ body {
   copyBtn.addEventListener('click', function() {
     var code = codeNum.textContent;
     if (!code) return;
-    copyText(code, function() {
+    navigator.clipboard.writeText(code).then(function() {
+      copyBtn.textContent = '✅ 已复制';
+      copyBtn.classList.add('copied');
+    }).catch(function() {
+      // fallback: 老浏览器用 execCommand
+      var ta = document.createElement('textarea');
+      ta.value = code; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
       copyBtn.textContent = '✅ 已复制';
       copyBtn.classList.add('copied');
     });
@@ -640,13 +474,6 @@ body {
   codeInput.addEventListener('input', function() {
     codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 5);
   });
-
-  clearUploadHistory.addEventListener('click', function() {
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistory();
-  });
-
-  renderHistory();
 
 })();
 </script>

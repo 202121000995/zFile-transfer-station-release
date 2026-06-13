@@ -1,0 +1,69 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local logs and scratch files
+*.log
+*.tmp
+*.bak
+_w.cs
+msi_log.txt
+aqtinstall.log
+
+# Private deployment scripts / server credentials
+deploy/
+deploy.bat
+deploy_*.py
+deploy_web.py
+fix_*.py
+
+# Build outputs
+build/
+dist/
+target/
+release/
+qt/
+
+# Qt build outputs
+client/qt/.qmake.stash
+client/qt/Makefile*
+client/qt/debug/
+client/qt/release/
+client/qt/*_resource.rc
+*.exe
+*.msi
+*.cab
+*.zip
+*.7z
+
+# Go local caches / portable toolchains
+.gc120/
+.gocache/
+.gocache120/
+.gopath/
+.gopath120/
+.gotmp/
+.gotmp120/
+.gp120/
+.gtmp120/
+go1.20/
+
+# Rust / Tauri
+client/tauri/node_modules/
+client/tauri/dist/
+client/tauri/src-tauri/target/
+
+# Downloaded local toolchains
+tools/
+rustup-init.exe
+go1.20.14.msi
+extracted.cab
+
+# Old local icon experiments
+ui-assets/
+ui-assets-v*/
+
+# Local restore snapshots
+restore-point-*/

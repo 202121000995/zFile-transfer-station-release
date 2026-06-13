@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>文件中转站</title>
+</head>
+<body>
+  <div id="app">
+    <div class="drag-strip" data-tauri-drag-region>文件中转站 v1.0</div>
+    <header class="tabs">
+      <button class="tab active" id="sendTab">
+        <span class="tab-icon">📤</span>
+        <span>发送文件</span>
+      </button>
+      <button class="tab" id="recvTab">
+        <span class="tab-icon">📥</span>
+        <span>接收文件</span>
+      </button>
+    </header>
+
+    <main class="page active" id="sendPage">
+      <section class="drop-zone" id="dropZone">
+        <div class="cloud">
+          <div class="cloud-shape"></div>
+          <div class="cloud-arrow">↑</div>
+        </div>
+        <h2>点击或拖拽文件到此处上传</h2>
+        <p>限制体积500M，支持多文件</p>
+        <p class="file-name" id="fileName"></p>
+        <input type="file" id="fileInput" multiple />
+      </section>
+
+      <button class="primary upload" id="uploadBtn">
+        <span>⬆</span>
+        <span>开始上传文件</span>
+      </button>
+
+      <div class="progress hidden" id="uploadProgress">
+        <div class="progress-bar" id="uploadBar"></div>
+      </div>
+
+      <section class="result hidden" id="resultCard">
+        <div class="result-title">上传结果</div>
+        <div class="result-body">上传成功！您的取件码是：</div>
+        <div class="result-row">
+          <strong id="pickupCode">12345</strong>
+          <button class="copy" id="copyBtn">复制</button>
+        </div>
+        <div class="result-foot">文件将在 24 小时后自动过期</div>
+      </section>
+
+      <section class="upload-history">
+        <div class="history-title">
+          <span>上传记录</span>
+          <button id="clearHistoryBtn" type="button">清空</button>
+        </div>
+        <div class="history-empty" id="historyEmpty">暂无上传记录</div>
+        <div class="history-list" id="historyList"></div>
+      </section>
+    </main>
+
+    <main class="page" id="recvPage">
+      <h2 class="section-title">请输入取件码</h2>
+      <div class="input-row">
+        <input id="codeInput" maxlength="5" inputmode="numeric" placeholder="请输入 5 位取件码" />
+        <button class="primary download" id="downloadBtn">提取下载</button>
+      </div>
+      <div class="progress hidden" id="downloadProgress">
+        <div class="progress-bar" id="downloadBar"></div>
+      </div>
+      <section class="status-card">
+        <div class="inbox-icon">📦</div>
+        <h2 id="statusTitle">等待输入取件码...</h2>
+        <p id="statusSub">输入有效的取件码即可开始下载文件</p>
+      </section>
+      <label class="check"><input id="autoOpen" type="checkbox" checked /> 下载完成后自动打开文件夹</label>
+      <label class="check"><input id="autoUnzip" type="checkbox" checked /> 下载的文件为压缩包则自动解压</label>
+    </main>
+
+    <footer class="footer">
+      <label class="check"><input id="autoStart" type="checkbox" /> 开机自动启动</label>
+      <button class="settings" id="settingsBtn">设置中心</button>
+    </footer>
+
+    <div class="settings-modal hidden" id="settingsModal">
+      <div class="settings-card">
+        <div class="settings-title">设置中心</div>
+        <label class="settings-label" for="serverInput">服务端地址</label>
+        <input id="serverInput" class="settings-input" placeholder="http://服务器IP:8080 或 https://你的域名" />
+        <div class="settings-tip" id="serverTestStatus">默认服务端：https://zz.31pk.top</div>
+        <div class="settings-actions">
+          <button class="settings-secondary" id="cancelSettingsBtn">取消</button>
+          <button class="settings-test" id="testServerBtn">测试连接</button>
+          <button class="settings-save" id="saveServerBtn" disabled>保存生效</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

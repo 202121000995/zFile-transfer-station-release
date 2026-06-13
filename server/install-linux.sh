@@ -1,16 +1,17 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 PORT="8080"
 DATA_DIR="/opt/zfile-relay/temp_files"
 EXPIRE_HOURS="24"
 MAX_DOWNLOADS="0"
+MAX_UPLOAD_MB="500"
 INSTALL_DIR="/opt/zfile-relay"
 WEB_ROOT="/var/www/zfile-transfer"
 SERVICE_NAME="zfile-relay"
 RELAY_BIN="./relay-server-linux-amd64"
 WEB_FILE="./index.html"
-REPO_RAW_BASE="https://raw.githubusercontent.com/202121000995/zFile-transfer-station-release/main"
+REPO_RAW_BASE="https://raw.githubusercontent.com/202121000995/zFile-transfer-station/main"
 RELAY_URL="${REPO_RAW_BASE}/server/bin/relay-server-linux-amd64"
 WEB_URL="${REPO_RAW_BASE}/web/index.html"
 
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --dir) DATA_DIR="$2"; shift 2 ;;
     --expire) EXPIRE_HOURS="$2"; shift 2 ;;
     --max-dl) MAX_DOWNLOADS="$2"; shift 2 ;;
+    --max-upload-mb) MAX_UPLOAD_MB="$2"; shift 2 ;;
     --install-dir) INSTALL_DIR="$2"; shift 2 ;;
     --web-root) WEB_ROOT="$2"; shift 2 ;;
     --relay-bin) RELAY_BIN="$2"; shift 2 ;;
@@ -106,6 +108,7 @@ PORT=${PORT}
 DATA_DIR=${DATA_DIR}
 EXPIRE_HOURS=${EXPIRE_HOURS}
 MAX_DOWNLOADS=${MAX_DOWNLOADS}
+MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
 EOF
 
 cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
@@ -118,7 +121,7 @@ Wants=network-online.target
 Type=simple
 EnvironmentFile=/etc/${SERVICE_NAME}.conf
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=${INSTALL_DIR}/relay-server -port \${PORT} -dir \${DATA_DIR} -expire \${EXPIRE_HOURS} -max-dl \${MAX_DOWNLOADS}
+ExecStart=${INSTALL_DIR}/relay-server -port \${PORT} -dir \${DATA_DIR} -expire \${EXPIRE_HOURS} -max-dl \${MAX_DOWNLOADS} -max-upload-mb \${MAX_UPLOAD_MB}
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -191,6 +194,7 @@ case "${1:-}" in
         --port) PORT="$2"; shift 2 ;;
         --expire) EXPIRE_HOURS="$2"; shift 2 ;;
         --max-dl) MAX_DOWNLOADS="$2"; shift 2 ;;
+        --max-upload-mb) MAX_UPLOAD_MB="$2"; shift 2 ;;
         --dir) DATA_DIR="$2"; shift 2 ;;
         *) echo "未知参数：$1"; usage; exit 1 ;;
       esac
@@ -200,6 +204,7 @@ PORT=${PORT}
 DATA_DIR=${DATA_DIR}
 EXPIRE_HOURS=${EXPIRE_HOURS}
 MAX_DOWNLOADS=${MAX_DOWNLOADS}
+MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
 CONFIG
     mkdir -p "${DATA_DIR}"
     systemctl daemon-reload
@@ -259,4 +264,3 @@ SSL/域名：
   如需 HTTPS，请用 1Panel/宝塔/Nginx/Caddy 反向代理到 127.0.0.1:${PORT}。
 
 EOF
-

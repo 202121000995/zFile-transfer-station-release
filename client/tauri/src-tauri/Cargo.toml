@@ -1,0 +1,32 @@
+[package]
+name = "file-transfer-tauri"
+version = "1.0.0"
+description = "File Transfer Tauri Client"
+authors = ["OpenAI Codex"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.75"
+
+[build-dependencies]
+tauri-build = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = [] }
+
+[dependencies]
+globset = "=0.4.14"
+idna_adapter = "=1.0.0"
+tempfile = "=3.10.1"
+uuid = "=1.8.0"
+time = "=0.3.36"
+time-macros = "=0.2.18"
+hashbrown = "=0.14.5"
+indexmap = "=2.2.6"
+serde_with = "=3.7.0"
+serde_with_macros = "=3.7.0"
+unicode-segmentation = "=1.11.0"
+serde = { version = "=1.0.228", features = ["derive"] }
+ureq = { version = "=2.9.7", features = ["tls"] }
+zip = { version = "=0.6.6", default-features = false, features = ["deflate"] }
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "1.x", features = ["shell-open", "windows7-compat"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
