@@ -39,6 +39,7 @@ type FileMeta struct {
 var (
 	fileStore      sync.Map
 	tempDir        string
+	webRoot        string
 	expireHours    int
 	maxDownloads   int
 	maxUploadMB    int
@@ -320,6 +321,22 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf(`{"version":"%s","codeLen":5,"expireHours":%d,"maxDownloads":%d,"maxUploadMB":%d,"maxUploadBytes":%d}`, VERSION, expireHours, maxDownloads, maxUploadMB, maxUploadBytes)))
 }
 
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		respondText(w, http.StatusMethodNotAllowed, "仅支持 GET / HEAD")
+		return
+	}
+	if webRoot == "" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(webRoot, "index.html"))
+}
+
 func startCleaner() {
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
@@ -350,12 +367,14 @@ func cleanupOnStart() {
 func main() {
 	port := flag.Int("port", 8080, "HTTP 监听端口")
 	dir := flag.String("dir", "./temp_files", "临时文件目录")
+	web := flag.String("web", "", "web index.html directory (optional)")
 	exp := flag.Int("expire", 24, "文件过期时间（小时）")
 	maxDl := flag.Int("max-dl", 0, "最大下载次数（0=不限）")
 	maxUp := flag.Int("max-upload-mb", DEFAULT_MAX_UPLOAD_MB, "max upload size in MB (0=unlimited)")
 	flag.Parse()
 
 	tempDir = *dir
+	webRoot = *web
 	expireHours = *exp
 	maxDownloads = *maxDl
 	maxUploadMB = *maxUp
@@ -379,11 +398,15 @@ func main() {
 	http.HandleFunc("/download/", corsMiddleware(handleDownload))
 	http.HandleFunc("/health", corsMiddleware(handleHealth))
 	http.HandleFunc("/version", corsMiddleware(handleVersion))
+	http.HandleFunc("/", handleIndex)
 
 	log.Printf("  max upload size: %d MB (0=unlimited)", maxUploadMB)
 	log.Printf("============================================")
 	log.Printf("  relay-server v%s", VERSION)
 	log.Printf("  监听端口: %d", *port)
+	if webRoot != "" {
+		log.Printf("  web目录: %s", webRoot)
+	}
 	log.Printf("  取件码: 5位数字")
 	log.Printf("  过期时间: %d 小时", expireHours)
 	log.Printf("  最大下载次数: %d (0=不限)", maxDownloads)
