@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -365,6 +366,12 @@ func main() {
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		log.Fatalf("创建临时目录失败: %v", err)
 	}
+	addr := fmt.Sprintf(":%d", *port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("service start failed: %v", err)
+	}
+
 	cleanupOnStart()
 	startCleaner()
 
@@ -373,7 +380,6 @@ func main() {
 	http.HandleFunc("/health", corsMiddleware(handleHealth))
 	http.HandleFunc("/version", corsMiddleware(handleVersion))
 
-	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("  max upload size: %d MB (0=unlimited)", maxUploadMB)
 	log.Printf("============================================")
 	log.Printf("  relay-server v%s", VERSION)
@@ -383,7 +389,7 @@ func main() {
 	log.Printf("  最大下载次数: %d (0=不限)", maxDownloads)
 	log.Printf("============================================")
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.Serve(ln, nil); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }
