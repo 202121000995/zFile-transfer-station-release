@@ -46,10 +46,10 @@ body {
 /* ===== two-column layout ===== */
 .main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-  width: 100%; max-width: 960px;
+  width: 100%; max-width: 760px;
 }
 @media (max-width: 640px) {
   body { padding: 12px 8px; overflow-x: hidden; }
@@ -224,8 +224,7 @@ body {
 .dl-status.error { color: var(--danger); }
 
 .history-card {
-  grid-column: 1 / -1;
-  gap: 14px;
+  gap: 0;
 }
 .history-head {
   display: flex;
@@ -234,6 +233,25 @@ body {
   gap: 12px;
 }
 .history-head h2 { text-align: left; }
+.history-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.history-toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.history-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
 .history-clear {
   border: 0;
   background: transparent;
@@ -242,6 +260,13 @@ body {
   font-size: 13px;
 }
 .history-clear:hover { color: var(--danger); }
+.history-body {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+}
+.history-card.expanded .history-body { display: flex; }
 .history-empty {
   color: var(--text-secondary);
   font-size: 13px;
@@ -318,6 +343,19 @@ body {
 
 <div class="main">
 
+  <!-- ========== 接收面板 ========== -->
+  <div class="card" id="recvCard">
+    <h2>📥 接收文件</h2>
+
+    <div class="dl-input-row">
+      <input type="text" id="codeInput" placeholder="输入5位取件码" maxlength="5" inputmode="numeric" pattern="[0-9]*">
+      <button id="dlBtn">下载</button>
+    </div>
+
+    <div class="dl-status" id="dlStatus"></div>
+    <div class="error-msg" id="dlError"></div>
+  </div>
+
   <!-- ========== 发送面板 ========== -->
   <div class="card" id="sendCard">
     <h2>📤 发送文件</h2>
@@ -358,26 +396,18 @@ body {
     <div class="error-msg" id="sendError"></div>
   </div>
 
-  <!-- ========== 接收面板 ========== -->
-  <div class="card" id="recvCard">
-    <h2>📥 接收文件</h2>
-
-    <div class="dl-input-row">
-      <input type="text" id="codeInput" placeholder="输入5位取件码" maxlength="5" inputmode="numeric" pattern="[0-9]*">
-      <button id="dlBtn">下载</button>
-    </div>
-
-    <div class="dl-status" id="dlStatus"></div>
-    <div class="error-msg" id="dlError"></div>
-  </div>
-
   <div class="card history-card" id="historyCard">
     <div class="history-head">
       <h2>上传记录</h2>
-      <button class="history-clear" id="clearUploadHistory" type="button">清空记录</button>
+      <div class="history-tools">
+        <button class="history-toggle" id="toggleUploadHistory" type="button">查看记录</button>
+        <button class="history-clear" id="clearUploadHistory" type="button">清空记录</button>
+      </div>
     </div>
-    <div class="history-empty" id="historyEmpty">暂无上传记录</div>
-    <div class="history-list" id="historyList"></div>
+    <div class="history-body" id="historyBody">
+      <div class="history-empty" id="historyEmpty">暂无上传记录</div>
+      <div class="history-list" id="historyList"></div>
+    </div>
   </div>
 
 </div>
@@ -409,8 +439,10 @@ body {
   var dlBtn        = document.getElementById('dlBtn');
   var dlStatus     = document.getElementById('dlStatus');
   var dlError      = document.getElementById('dlError');
+  var historyCard  = document.getElementById('historyCard');
   var historyList  = document.getElementById('historyList');
   var historyEmpty = document.getElementById('historyEmpty');
+  var toggleUploadHistory = document.getElementById('toggleUploadHistory');
   var clearUploadHistory = document.getElementById('clearUploadHistory');
 
   var HISTORY_KEY = 'zfile_upload_history';
@@ -752,6 +784,7 @@ body {
     });
     records.unshift(record);
     saveHistory(records);
+    historyCard.classList.add('expanded');
     renderHistory();
   }
 
@@ -782,7 +815,11 @@ body {
     var records = loadHistory();
     historyList.innerHTML = '';
     historyEmpty.style.display = records.length ? 'none' : 'block';
-    clearUploadHistory.style.display = records.length ? 'block' : 'none';
+    var expanded = historyCard.classList.contains('expanded');
+    clearUploadHistory.style.display = records.length && expanded ? 'block' : 'none';
+    toggleUploadHistory.textContent = expanded
+      ? '收起记录'
+      : (records.length ? '查看记录 (' + records.length + ')' : '查看记录');
 
     records.forEach(function(item) {
       var row = document.createElement('div');
@@ -1078,6 +1115,11 @@ body {
 
   clearUploadHistory.addEventListener('click', function() {
     localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  });
+
+  toggleUploadHistory.addEventListener('click', function() {
+    historyCard.classList.toggle('expanded');
     renderHistory();
   });
 

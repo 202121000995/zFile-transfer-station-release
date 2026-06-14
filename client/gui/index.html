@@ -85,10 +85,10 @@ body {
 /* ===== two-column layout ===== */
 .main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-  width: 100%; max-width: 960px;
+  width: 100%; max-width: 760px;
 }
 @media (max-width: 640px) {
   body { padding: 12px 8px; overflow-x: hidden; }
@@ -286,6 +286,19 @@ body {
 
 <div class="main">
 
+  <!-- ========== 接收面板 ========== -->
+  <div class="card" id="recvCard">
+    <h2>📥 接收文件</h2>
+
+    <div class="dl-input-row">
+      <input type="text" id="codeInput" placeholder="输入5位取件码" maxlength="5" inputmode="numeric" pattern="[0-9]*">
+      <button id="dlBtn">下载</button>
+    </div>
+
+    <div class="dl-status" id="dlStatus"></div>
+    <div class="error-msg" id="dlError"></div>
+  </div>
+
   <!-- ========== 发送面板 ========== -->
   <div class="card" id="sendCard">
     <h2>📤 发送文件</h2>
@@ -324,19 +337,6 @@ body {
     </div>
 
     <div class="error-msg" id="sendError"></div>
-  </div>
-
-  <!-- ========== 接收面板 ========== -->
-  <div class="card" id="recvCard">
-    <h2>📥 接收文件</h2>
-
-    <div class="dl-input-row">
-      <input type="text" id="codeInput" placeholder="输入5位取件码" maxlength="5" inputmode="numeric" pattern="[0-9]*">
-      <button id="dlBtn">下载</button>
-    </div>
-
-    <div class="dl-status" id="dlStatus"></div>
-    <div class="error-msg" id="dlError"></div>
   </div>
 
 </div>
