@@ -131,6 +131,26 @@ body {
 .dropzone .icon { font-size: 40px; margin-bottom: 8px; }
 .dropzone p { color: var(--text-secondary); font-size: 14px; }
 .dropzone input[type=file] { display: none; }
+.send-tools {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.tool-btn {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.tool-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #f8fafc;
+}
 
 /* ===== progress bar ===== */
 .progress-wrap { display: none; flex-direction: column; gap: 6px; }
@@ -162,6 +182,55 @@ body {
 }
 .copy-btn:hover { background: var(--primary); color: #fff; }
 .copy-btn.copied { background: var(--success); color: #fff; border-color: var(--success); }
+.share-panel {
+  display: none;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.share-panel.show { display: flex; }
+.share-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.share-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 13px;
+}
+.share-row button {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.share-row button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.qr-box {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+}
+.qr-box svg {
+  width: 128px;
+  height: 128px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
 .error-msg { color: var(--danger); font-size: 13px; text-align: center; display: none; }
 .error-msg.show { display: block; }
 
@@ -213,6 +282,10 @@ body {
       <input type="file" id="fileInput" multiple>
     </div>
 
+    <div class="send-tools">
+      <button class="tool-btn" id="pasteUploadBtn" type="button">上传剪切板</button>
+    </div>
+
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
       <div class="progress-text" id="progressText">上传中...</div>
@@ -221,6 +294,17 @@ body {
     <div class="code-display" id="codeDisplay">
       <div class="code-num" id="codeNum"></div>
       <button class="copy-btn" id="copyBtn">📋 复制取件码</button>
+      <div class="share-panel" id="sharePanel">
+        <div class="share-row">
+          <input type="text" id="shareLink" readonly>
+          <button id="copyShareBtn" type="button">复制链接</button>
+        </div>
+        <div class="share-row">
+          <input type="text" id="wgetCommand" readonly>
+          <button id="copyWgetBtn" type="button">复制 wget</button>
+        </div>
+        <div class="qr-box" id="qrBox"></div>
+      </div>
     </div>
 
     <div class="error-msg" id="sendError"></div>
@@ -254,12 +338,19 @@ body {
   var saveConfig   = document.getElementById('saveConfig');
   var dropzone     = document.getElementById('dropzone');
   var fileInput    = document.getElementById('fileInput');
+  var pasteUploadBtn = document.getElementById('pasteUploadBtn');
   var progressWrap = document.getElementById('progressWrap');
   var progressFill = document.getElementById('progressFill');
   var progressText = document.getElementById('progressText');
   var codeDisplay  = document.getElementById('codeDisplay');
   var codeNum      = document.getElementById('codeNum');
   var copyBtn      = document.getElementById('copyBtn');
+  var sharePanel   = document.getElementById('sharePanel');
+  var shareLink    = document.getElementById('shareLink');
+  var wgetCommand  = document.getElementById('wgetCommand');
+  var copyShareBtn = document.getElementById('copyShareBtn');
+  var copyWgetBtn  = document.getElementById('copyWgetBtn');
+  var qrBox        = document.getElementById('qrBox');
   var sendError    = document.getElementById('sendError');
   var codeInput    = document.getElementById('codeInput');
   var dlBtn        = document.getElementById('dlBtn');
@@ -283,6 +374,282 @@ body {
     var total = 0;
     for (var i = 0; i < files.length; i++) total += files[i].size || 0;
     return total;
+  }
+
+  function shareUrlForCode(code) {
+    return getServer() + '/?code=' + encodeURIComponent(code);
+  }
+
+  function shellQuote(value) {
+    return "'" + String(value || 'download').replace(/'/g, "'\\''") + "'";
+  }
+
+  function downloadNameForFiles(files, code) {
+    if (!files || files.length !== 1) return code + '.zip';
+    return files[0].name || (code + '.bin');
+  }
+
+  function directDownloadUrl(code) {
+    return getServer() + '/download/' + encodeURIComponent(code);
+  }
+
+  function qrSvg(text) {
+    var configs = [
+      { v: 1, data: 19, ecc: 7, align: [] },
+      { v: 2, data: 34, ecc: 10, align: [6, 18] },
+      { v: 3, data: 55, ecc: 15, align: [6, 22] },
+      { v: 4, data: 80, ecc: 20, align: [6, 26] },
+      { v: 5, data: 108, ecc: 26, align: [6, 30] }
+    ];
+    var bytes = Array.prototype.slice.call(new TextEncoder().encode(text));
+    var cfg = configs.filter(function(item) {
+      return 4 + 8 + bytes.length * 8 <= item.data * 8;
+    })[0] || configs[configs.length - 1];
+    var bits = [];
+    function append(value, len) {
+      for (var i = len - 1; i >= 0; i--) bits.push((value >>> i) & 1);
+    }
+    append(4, 4);
+    append(bytes.length, 8);
+    bytes.forEach(function(b) { append(b, 8); });
+    var maxBits = cfg.data * 8;
+    append(0, Math.min(4, maxBits - bits.length));
+    while (bits.length % 8) bits.push(0);
+    var data = [];
+    for (var bi = 0; bi < bits.length; bi += 8) {
+      var cw = 0;
+      for (var bj = 0; bj < 8; bj++) cw = (cw << 1) | bits[bi + bj];
+      data.push(cw);
+    }
+    for (var pad = 0; data.length < cfg.data; pad++) data.push(pad % 2 ? 0x11 : 0xEC);
+
+    var gfExp = new Array(512), gfLog = new Array(256), x = 1;
+    for (var gi = 0; gi < 255; gi++) {
+      gfExp[gi] = x;
+      gfLog[x] = gi;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11D;
+    }
+    for (var ge = 255; ge < 512; ge++) gfExp[ge] = gfExp[ge - 255];
+    function gfMul(a, b) {
+      return a && b ? gfExp[gfLog[a] + gfLog[b]] : 0;
+    }
+    function rsDivisor(degree) {
+      var result = new Array(degree).fill(0);
+      result[degree - 1] = 1;
+      var root = 1;
+      for (var di = 0; di < degree; di++) {
+        for (var dj = 0; dj < degree; dj++) {
+          result[dj] = gfMul(result[dj], root);
+          if (dj + 1 < degree) result[dj] ^= result[dj + 1];
+        }
+        root = gfMul(root, 2);
+      }
+      return result;
+    }
+    function rsRemainder(values, degree) {
+      var divisor = rsDivisor(degree);
+      var result = new Array(degree).fill(0);
+      values.forEach(function(value) {
+        var factor = value ^ result.shift();
+        result.push(0);
+        for (var ri = 0; ri < result.length; ri++) result[ri] ^= gfMul(divisor[ri], factor);
+      });
+      return result;
+    }
+
+    var codewords = data.concat(rsRemainder(data, cfg.ecc));
+    var size = cfg.v * 4 + 17;
+    var modules = [], reserved = [];
+    for (var y = 0; y < size; y++) {
+      modules[y] = new Array(size).fill(false);
+      reserved[y] = new Array(size).fill(false);
+    }
+    function setModule(mx, my, dark, isReserved) {
+      if (mx < 0 || my < 0 || mx >= size || my >= size) return;
+      modules[my][mx] = !!dark;
+      if (isReserved) reserved[my][mx] = true;
+    }
+    function finder(fx, fy) {
+      for (var dy = -1; dy <= 7; dy++) {
+        for (var dx = -1; dx <= 7; dx++) {
+          var xx = fx + dx, yy = fy + dy;
+          var black = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6 &&
+            (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+          setModule(xx, yy, black, true);
+        }
+      }
+    }
+    finder(0, 0);
+    finder(size - 7, 0);
+    finder(0, size - 7);
+    for (var ti = 8; ti < size - 8; ti++) {
+      setModule(ti, 6, ti % 2 === 0, true);
+      setModule(6, ti, ti % 2 === 0, true);
+    }
+    cfg.align.forEach(function(ay) {
+      cfg.align.forEach(function(ax) {
+        if (reserved[ay][ax]) return;
+        for (var ddy = -2; ddy <= 2; ddy++) {
+          for (var ddx = -2; ddx <= 2; ddx++) {
+            var dist = Math.max(Math.abs(ddx), Math.abs(ddy));
+            setModule(ax + ddx, ay + ddy, dist === 0 || dist === 2, true);
+          }
+        }
+      });
+    });
+    setModule(8, size - 8, true, true);
+
+    function formatBits(mask) {
+      var dataBits = (1 << 3) | mask;
+      var rem = dataBits;
+      for (var fi = 0; fi < 10; fi++) rem = (rem << 1) ^ (((rem >>> 9) & 1) ? 0x537 : 0);
+      return ((dataBits << 10) | (rem & 0x3FF)) ^ 0x5412;
+    }
+    function drawFormat(target, mask) {
+      var bits15 = formatBits(mask);
+      function bit(i) { return ((bits15 >>> i) & 1) !== 0; }
+      for (var i = 0; i <= 5; i++) target[8][i] = bit(i);
+      target[8][7] = bit(6);
+      target[8][8] = bit(7);
+      target[7][8] = bit(8);
+      for (var i2 = 9; i2 < 15; i2++) target[14 - i2][8] = bit(i2);
+      for (var i3 = 0; i3 < 8; i3++) target[size - 1 - i3][8] = bit(i3);
+      for (var i4 = 8; i4 < 15; i4++) target[8][size - 15 + i4] = bit(i4);
+      target[size - 8][8] = true;
+    }
+    drawFormat(modules, 0);
+    for (var ry = 0; ry < size; ry++) {
+      for (var rx = 0; rx < size; rx++) {
+        if (rx === 8 || ry === 8) reserved[ry][rx] = true;
+      }
+    }
+
+    var stream = [];
+    codewords.forEach(function(value) { for (var si = 7; si >= 0; si--) stream.push((value >>> si) & 1); });
+    var bitIndex = 0;
+    for (var right = size - 1, upward = true; right >= 1; right -= 2, upward = !upward) {
+      if (right === 6) right--;
+      for (var vert = 0; vert < size; vert++) {
+        var yy = upward ? size - 1 - vert : vert;
+        for (var xx = right; xx >= right - 1; xx--) {
+          if (!reserved[yy][xx]) modules[yy][xx] = bitIndex < stream.length && stream[bitIndex++] === 1;
+        }
+      }
+    }
+
+    function maskBit(mask, mx, my) {
+      if (mask === 0) return (mx + my) % 2 === 0;
+      if (mask === 1) return my % 2 === 0;
+      if (mask === 2) return mx % 3 === 0;
+      if (mask === 3) return (mx + my) % 3 === 0;
+      if (mask === 4) return (Math.floor(my / 2) + Math.floor(mx / 3)) % 2 === 0;
+      if (mask === 5) return ((mx * my) % 2 + (mx * my) % 3) === 0;
+      if (mask === 6) return (((mx * my) % 2 + (mx * my) % 3) % 2) === 0;
+      return (((mx + my) % 2 + (mx * my) % 3) % 2) === 0;
+    }
+    function copyGrid(grid) {
+      return grid.map(function(row) { return row.slice(); });
+    }
+    function score(grid) {
+      var penalty = 0, dark = 0;
+      for (var sy = 0; sy < size; sy++) {
+        var runColor = grid[sy][0], runLen = 1;
+        for (var sx = 0; sx < size; sx++) {
+          if (grid[sy][sx]) dark++;
+          if (sx > 0) {
+            if (grid[sy][sx] === runColor) runLen++;
+            else { if (runLen >= 5) penalty += 3 + runLen - 5; runColor = grid[sy][sx]; runLen = 1; }
+          }
+        }
+        if (runLen >= 5) penalty += 3 + runLen - 5;
+      }
+      for (var sx2 = 0; sx2 < size; sx2++) {
+        var colColor = grid[0][sx2], colRun = 1;
+        for (var sy2 = 1; sy2 < size; sy2++) {
+          if (grid[sy2][sx2] === colColor) colRun++;
+          else { if (colRun >= 5) penalty += 3 + colRun - 5; colColor = grid[sy2][sx2]; colRun = 1; }
+        }
+        if (colRun >= 5) penalty += 3 + colRun - 5;
+      }
+      for (var y2 = 0; y2 < size - 1; y2++) {
+        for (var x2 = 0; x2 < size - 1; x2++) {
+          var c = grid[y2][x2];
+          if (c === grid[y2][x2 + 1] && c === grid[y2 + 1][x2] && c === grid[y2 + 1][x2 + 1]) penalty += 3;
+        }
+      }
+      penalty += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+      return penalty;
+    }
+    var best = null, bestScore = Infinity;
+    for (var mask = 0; mask < 8; mask++) {
+      var candidate = copyGrid(modules);
+      for (var my = 0; my < size; my++) {
+        for (var mx = 0; mx < size; mx++) {
+          if (!reserved[my][mx] && maskBit(mask, mx, my)) candidate[my][mx] = !candidate[my][mx];
+        }
+      }
+      drawFormat(candidate, mask);
+      var candidateScore = score(candidate);
+      if (candidateScore < bestScore) {
+        bestScore = candidateScore;
+        best = candidate;
+      }
+    }
+    var quiet = 4, path = [];
+    for (var py = 0; py < size; py++) {
+      for (var px = 0; px < size; px++) {
+        if (best[py][px]) path.push('M' + (px + quiet) + ',' + (py + quiet) + 'h1v1h-1z');
+      }
+    }
+    var view = size + quiet * 2;
+    return '<svg viewBox="0 0 ' + view + ' ' + view + '" role="img" aria-label="分享二维码" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#fff"/><path d="' + path.join('') + '" fill="#111"/></svg>';
+  }
+
+  function renderQr(url) {
+    qrBox.innerHTML = qrSvg(url);
+  }
+
+  function showShareTools(code, files) {
+    var link = shareUrlForCode(code);
+    var fileName = downloadNameForFiles(files, code);
+    var command = 'wget -O ' + shellQuote(fileName) + ' ' + shellQuote(directDownloadUrl(code));
+    shareLink.value = link;
+    wgetCommand.value = command;
+    renderQr(link);
+    sharePanel.classList.add('show');
+    copyShareBtn.textContent = '复制链接';
+    copyWgetBtn.textContent = '复制 wget';
+  }
+
+  function resetShareTools() {
+    sharePanel.classList.remove('show');
+    shareLink.value = '';
+    wgetCommand.value = '';
+    qrBox.innerHTML = '';
+  }
+
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function() {
+        fallbackCopy(text);
+        done();
+      });
+      return;
+    }
+    fallbackCopy(text);
+    done();
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
   }
 
   serverUrl.value = getServer();
@@ -327,11 +694,72 @@ body {
     if (fileInput.files.length > 0) { uploadFiles(fileInput.files); }
   });
 
+  function clipboardFileName(ext) {
+    var d = new Date();
+    var stamp = d.getFullYear()
+      + String(d.getMonth() + 1).padStart(2, '0')
+      + String(d.getDate()).padStart(2, '0')
+      + '-'
+      + String(d.getHours()).padStart(2, '0')
+      + String(d.getMinutes()).padStart(2, '0')
+      + String(d.getSeconds()).padStart(2, '0');
+    return 'clipboard-' + stamp + ext;
+  }
+
+  function uploadClipboard() {
+    sendError.classList.remove('show');
+    sendError.textContent = '';
+
+    if (navigator.clipboard && navigator.clipboard.read) {
+      navigator.clipboard.read().then(function(items) {
+        for (var i = 0; i < items.length; i++) {
+          var types = items[i].types || [];
+          for (var j = 0; j < types.length; j++) {
+            if (types[j].indexOf('image/') === 0) {
+              items[i].getType(types[j]).then(function(blob) {
+                var ext = blob.type === 'image/jpeg' ? '.jpg' : '.png';
+                uploadFiles([new File([blob], clipboardFileName(ext), { type: blob.type || 'image/png' })]);
+              });
+              return;
+            }
+          }
+        }
+        uploadClipboardText();
+      }).catch(uploadClipboardText);
+      return;
+    }
+
+    uploadClipboardText();
+  }
+
+  function uploadClipboardText() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      sendError.textContent = '当前浏览器不支持读取剪切板';
+      sendError.classList.add('show');
+      return;
+    }
+    navigator.clipboard.readText().then(function(text) {
+      if (!text) {
+        sendError.textContent = '剪切板里没有可上传的文字或图片';
+        sendError.classList.add('show');
+        return;
+      }
+      var file = new File([text], clipboardFileName('.txt'), { type: 'text/plain;charset=utf-8' });
+      uploadFiles([file]);
+    }).catch(function() {
+      sendError.textContent = '无法读取剪切板，请允许浏览器权限后重试';
+      sendError.classList.add('show');
+    });
+  }
+
+  pasteUploadBtn.addEventListener('click', uploadClipboard);
+
   function uploadFiles(files) {
     // 重置 UI
     sendError.classList.remove('show');
     sendError.textContent = '';
     codeDisplay.classList.remove('show');
+    resetShareTools();
     if (totalFileSize(files) > MAX_UPLOAD_BYTES) {
       sendError.textContent = '文件超过上传限制，最大允许 ' + MAX_UPLOAD_LABEL;
       sendError.classList.add('show');
@@ -368,6 +796,7 @@ body {
         var code = xhr.responseText.trim();
         codeNum.textContent = code;
         codeDisplay.classList.add('show');
+        showShareTools(code, files);
         // 重置复制按钮
         copyBtn.textContent = '📋 复制取件码';
         copyBtn.classList.remove('copied');
@@ -392,18 +821,25 @@ body {
   copyBtn.addEventListener('click', function() {
     var code = codeNum.textContent;
     if (!code) return;
-    navigator.clipboard.writeText(code).then(function() {
+    copyText(code, function() {
       copyBtn.textContent = '✅ 已复制';
       copyBtn.classList.add('copied');
-    }).catch(function() {
-      // fallback: 老浏览器用 execCommand
-      var ta = document.createElement('textarea');
-      ta.value = code; ta.style.position = 'fixed'; ta.style.left = '-9999px';
-      document.body.appendChild(ta); ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      copyBtn.textContent = '✅ 已复制';
-      copyBtn.classList.add('copied');
+    });
+  });
+
+  copyShareBtn.addEventListener('click', function() {
+    if (!shareLink.value) return;
+    copyText(shareLink.value, function() {
+      copyShareBtn.textContent = '已复制';
+      setTimeout(function() { copyShareBtn.textContent = '复制链接'; }, 1200);
+    });
+  });
+
+  copyWgetBtn.addEventListener('click', function() {
+    if (!wgetCommand.value) return;
+    copyText(wgetCommand.value, function() {
+      copyWgetBtn.textContent = '已复制';
+      setTimeout(function() { copyWgetBtn.textContent = '复制 wget'; }, 1200);
     });
   });
 
@@ -474,6 +910,19 @@ body {
   codeInput.addEventListener('input', function() {
     codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 5);
   });
+
+  (function openSharedCode() {
+    var params = new URLSearchParams(window.location.search);
+    var code = params.get('code');
+    if (!code && window.location.hash) {
+      code = window.location.hash.replace(/^#/, '');
+    }
+    code = (code || '').replace(/\D/g, '').slice(0, 5);
+    if (/^\d{5}$/.test(code)) {
+      codeInput.value = code;
+      setTimeout(doDownload, 200);
+    }
+  })();
 
 })();
 </script>
